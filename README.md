@@ -7,7 +7,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**A Novel Quantum-Enhanced Ordinary Differential Equation Framework for Modeling Water Dynamics in Urban Environments**
+**A Novel Quantum-Enhanced Ordinary Differential Equation Framework for Modeling Complex Water Dynamics in Urban Watersheds**
 
 [Overview](#overview) | [Theory](#theoretical-foundation) | [Results](#results) | [Installation](#installation) | [Usage](#usage)
 
