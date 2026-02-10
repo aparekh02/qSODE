@@ -1,29 +1,30 @@
-# qSODE: Quantum Stochastic ODE Framework for Urban Watershed Modeling
+# qSODE-powered Agents: Multi-Agent Self-Evolving Urban Watershed Modeling
 
 <div align="center">
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Qiskit 1.0+](https://img.shields.io/badge/qiskit-1.0+-purple.svg)](https://qiskit.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
+[![Anthropic](https://img.shields.io/badge/Anthropic-Claude-orange.svg)](https://www.anthropic.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**A Novel Quantum-Enhanced Ordinary Differential Equation Framework for Modeling Complex Water Dynamics in Urban Watersheds**
+**A Quantum-Enhanced ODE Framework with LLM-Driven Multi-Agent Collaboration for Autonomous Physics Parameter Calibration in Urban Watersheds**
 
-[Overview](#overview) | [Theory](#theoretical-foundation) | [Results](#results) | [Installation](#installation) | [Usage](#usage)
+[Overview](#overview) | [Multi-Agent Architecture](#multi-agent-architecture) | [Quantum Foundation](#quantum-foundation) | [Results](#results) | [Installation](#installation) | [Usage](#usage)
 
 </div>
 
 ---
 
-## Abstract
+## Overview
 
-Urban watershed modeling presents unique challenges due to the heterogeneous nature of urban surfaces—where impervious roads and permeable soils create complex, spatially-varying infiltration patterns. Traditional deterministic models fail to capture the inherent uncertainty in soil saturation states at the microscale.
+Urban watershed modeling requires both accurate physics representation and careful calibration of dozens of parameters. Traditional approaches hardcode these values from literature, limiting adaptability to specific sites.
 
-This work introduces **qSODE (Quantum Stochastic ODE)**, a novel framework that leverages quantum computing principles to model soil water absorptivity through quantum superposition and entanglement. By encoding soil moisture states as quantum amplitudes, we achieve:
+**qSODE-powered Agents** combines two innovations:
 
-- **Probabilistic infiltration modeling** through quantum measurement collapse
-- **Spatially correlated saturation** via quantum entanglement between neighboring cells
-- **Dynamic state evolution** that captures the sequential saturation effects of multiple rainfall events
+1. **Quantum Soil Model (qSODE)**: A 3-qubit quantum circuit encodes soil moisture states as quantum amplitudes, enabling probabilistic infiltration modeling through measurement collapse, spatially correlated saturation via entanglement, and persistent state evolution across rainfall events.
+
+2. **Multi-Agent Self-Evolution**: Three domain-specialist Claude agents analyze simulation outputs each iteration and collaboratively tune 19 physics parameters toward target behaviors — without manual calibration.
 
 <div align="center">
 
@@ -35,86 +36,101 @@ This work introduces **qSODE (Quantum Stochastic ODE)**, a novel framework that 
 
 ---
 
-## Theoretical Foundation
+## Multi-Agent Architecture
 
-### 1. The Quantum-Enhanced Water Dynamics ODE
+The self-evolving loop runs simulation → metrics → agent analysis → orchestrated update → repeat:
 
-The core innovation of qSODE is the coupling of classical hydrodynamic equations with quantum state evolution. For each water particle $i$ at position $\mathbf{h}^i(t) = (x, y, z)$, the governing ODE is:
+```
+Simulation (ParameterSet) ──► MetricsExtractor ──► SimulationMetrics
+                                                        │
+                              ┌──────────────┬──────────┼──────────┐
+                              ▼              ▼          ▼          │
+                        HydrologyAgent  SurfaceAgent  QSoilAgent  │
+                         (Claude API)   (Claude API)  (Claude API) │
+                              │              │          │          │
+                              ▼              ▼          ▼          │
+                        AgentSuggestion x 3                       │
+                              │              │          │          │
+                              └──────────────┴──────┬───┘          │
+                                                    ▼              │
+                                              Orchestrator         │
+                                            (aggregate +           │
+                                             arbitrate)            │
+                                                    │              │
+                                                    ▼              │
+                                            New ParameterSet ──────┘
+```
+
+### Three Specialist Agents
+
+Each agent is a structured Claude API call with a physics-informed system prompt, receiving only the metrics and parameters relevant to its domain.
+
+| Agent | Domain | Parameters Controlled |
+|-------|--------|----------------------|
+| **Hydrology Agent** | Manning's equation, flow physics | `manning_n_road`, `manning_n_soil`, `manning_n_channel`, `road_surface_boost`, `channel_surface_boost`, `soil_surface_boost`, `self_dynamics_scale`, `interaction_scale`, `refraction_scale` |
+| **Surface Agent** | Surface differentiation, dispersion | `soil_velocity_base`, `soil_velocity_runoff_coeff`, `road_velocity_base`, `road_velocity_runoff_coeff`, `road_dispersion`, `soil_dispersion` |
+| **Quantum Soil Agent** | Infiltration, quantum circuit tuning | `infiltration_loss_mult`, `entanglement_radius`, `quantum_shots`, `interaction_dt` |
+
+### Orchestrator
+
+The Orchestrator resolves all agent suggestions into a single parameter update:
+
+- **Single suggestion** → apply directly with learning rate damping
+- **Multiple agents agree** → confidence-weighted average
+- **Agents conflict** → Claude arbitration call evaluates competing reasoning
+
+All updates are damped:
+
+$$p^{(t+1)} = p^{(t)} + \eta \cdot (p_{\text{suggested}} - p^{(t)})$$
+
+where $\eta = 0.5$, and results are clamped to physical bounds.
+
+### Communication Protocol
+
+Agents communicate via structured JSON — no free-form text. Each agent returns an `AgentSuggestion`:
+
+```json
+{
+  "agent_role": "hydrology",
+  "observation": {
+    "metrics_analyzed": {"velocity_ratio_road_soil": 2.70},
+    "anomalies": ["Road velocity ratio above target"],
+    "confidence": 0.90
+  },
+  "parameter_changes": [
+    {
+      "param_name": "manning_n_road",
+      "current_value": 0.012,
+      "suggested_value": 0.014,
+      "reasoning": "Increase road roughness to reduce velocity ratio toward 2.5x target",
+      "confidence": 0.85
+    }
+  ],
+  "priority": 0.90
+}
+```
+
+---
+
+## Quantum Foundation
+
+### Quantum-Enhanced Water Dynamics ODE
+
+For each water particle $i$ at position $\mathbf{h}^i(t)$:
 
 $$\frac{d\mathbf{h}^i(t)}{dt} = \mathbf{V}_{\text{Manning}}(\mathbf{h}^i) \cdot \Phi_Q(\mathbf{h}^i) + \sum_{j \neq i} \mathbf{F}_{\text{dispersion}}^{ij} + \mathbf{F}_{\text{obstacle}}^i$$
 
-Where:
-- $\mathbf{V}_{\text{Manning}}$ is the classical Manning velocity
-- $\Phi_Q$ is the **quantum velocity modifier** derived from quantum soil state measurements
-- $\mathbf{F}_{\text{dispersion}}$ handles particle-particle interactions
-- $\mathbf{F}_{\text{obstacle}}$ provides building avoidance forces
+Where $\Phi_Q$ is the quantum velocity modifier derived from quantum soil measurements, and all Manning coefficients, surface boosts, and dispersion factors are read from the evolvable `ParameterSet`.
 
----
-
-### 2. Manning's Equation for Open Channel Flow
-
-Water velocity over surfaces follows Manning's equation, adapted for shallow overland flow:
-
-$$V = \frac{1}{n} \cdot h^{2/3} \cdot S^{1/2}$$
-
-| Symbol | Description | Unit |
-|--------|-------------|------|
-| $V$ | Flow velocity | m/s |
-| $n$ | Manning's roughness coefficient | - |
-| $h$ | Hydraulic depth | m |
-| $S$ | Slope gradient | - |
-
-**Surface-Specific Manning Coefficients:**
-
-| Surface Type | $n$ Value | Physical Interpretation |
-|--------------|-----------|------------------------|
-| Road (asphalt) | 0.012 | Smooth, minimal friction |
-| Soil (grass) | 0.035 | Vegetation resistance |
-| Channel (concrete) | 0.025 | Engineered drainage |
-| Building | ∞ | No flow (obstacle) |
-
----
-
-### 3. Green-Ampt Infiltration Model
-
-Classical infiltration follows the Green-Ampt equation:
-
-$$f = K_s \left(1 + \frac{\psi \Delta\theta}{F}\right)$$
-
-| Symbol | Description |
-|--------|-------------|
-| $f$ | Infiltration rate (cm/s) |
-| $K_s$ | Saturated hydraulic conductivity |
-| $\psi$ | Wetting front suction head |
-| $\Delta\theta$ | Change in moisture content |
-| $F$ | Cumulative infiltration |
-
-**Soil Hydraulic Properties (USDA Classification):**
-
-| Soil Type | Porosity | Field Capacity | $K_s$ (cm/s) |
-|-----------|----------|----------------|--------------|
-| Sand | 0.12 | 0.417 | 4.95 × 10⁻³ |
-| Loam | 0.43 | 0.270 | 1.32 × 10⁻⁴ |
-| Clay | 0.38 | 0.385 | 5.56 × 10⁻⁶ |
-| Impervious | 0.00 | 0.000 | 0.00 |
-
----
-
-### 4. Quantum Soil Absorptivity Model
-
-The key innovation: **soil moisture states exist in quantum superposition until water interaction causes measurement collapse**.
-
-#### 4.1 Quantum State Encoding
-
-Each soil cell's state is encoded as a 3-qubit quantum system:
+### 3-Qubit Soil State Encoding
 
 | Qubit | Physical Meaning | State |0⟩ | State |1⟩ |
 |-------|------------------|---------|---------|
-| $q_0$ | Moisture level | Dry (absorbs water) | Saturated (rejects water) |
+| $q_0$ | Moisture level | Dry (absorbs) | Saturated (rejects) |
 | $q_1$ | Saturation history | Fresh soil | Waterlogged |
 | $q_2$ | Surface condition | Permeable | Sealed |
 
-#### 4.2 Quantum Circuit Architecture
+### Quantum Circuit
 
 ```
 |0⟩ ──[Ry(θ_m)]──────●──────[CRx(φ)]──[M]──> infiltration_rate
@@ -124,126 +140,91 @@ Each soil cell's state is encoded as a 3-qubit quantum system:
 |0⟩ ──[Ry(θ_surf)]────────────●────────[M]──> saturation_probability
 ```
 
-**Circuit Components:**
+### Spatial Entanglement
 
-| Gate | Operation | Physical Meaning |
-|------|-----------|------------------|
-| $R_y(\theta_m)$ | $e^{-i\theta_m Y/2}$ | Encodes moisture level (0 = dry, π = saturated) |
-| $R_y(\theta_s)$ | $e^{-i\theta_s Y/2}$ | Encodes saturation history |
-| CNOT | Controlled-X | Entangles moisture with saturation (wet soil stays wet) |
-| $CR_x(\phi)$ | Controlled X-rotation | Surface affects moisture-saturation correlation |
-| H-CZ-H | Hadamard sandwich | Creates interference pattern for quantum advantage |
-
-#### 4.3 Quantum State Evolution
-
-The moisture angle evolves with water absorption:
-
-$$\theta_m^{(t+1)} = \min\left(\pi, \theta_m^{(t)} + \frac{\Delta W}{\phi \cdot d} \cdot \pi\right)$$
-
-Where:
-- $\Delta W$ = water amount absorbed
-- $\phi$ = soil porosity
-- $d$ = effective depth (100 cm)
-
-**Quantum coherence decay** models environmental decoherence:
-
-$$\mathcal{C}^{(t+1)} = 0.98 \cdot \mathcal{C}^{(t)}$$
-
-#### 4.4 Measurement and Physical Interpretation
-
-Quantum measurement yields bit-string probabilities interpreted as:
-
-$$\text{Infiltration Rate} = K_s \cdot \left(0.6 \cdot P_{dry} + 0.3 \cdot P_{unsaturated} + 0.1 \cdot P_{permeable}\right) \cdot (0.5 + 0.5 \cdot \mathcal{C})$$
-
-$$\text{Runoff Factor} = 0.3 \cdot (1 - P_{dry}) + 0.5 \cdot (1 - P_{unsaturated}) + 0.2 \cdot (1 - P_{permeable})$$
-
----
-
-### 5. Spatial Entanglement Model
-
-Neighboring soil cells exhibit **quantum entanglement**, creating correlated saturation patterns:
-
-$$\theta_s^{neighbor} \leftarrow \theta_s^{neighbor} + \alpha(r) \cdot P_{sat} \cdot 0.2$$
-
-Where the entanglement strength decays with distance:
+Neighboring cells within $r_{entangle}$ exhibit correlated saturation:
 
 $$\alpha(r) = \left(1 - \frac{r}{r_{entangle}}\right) \cdot 0.3, \quad r < r_{entangle}$$
-
-With $r_{entangle} = 3.0$ meters (typical correlation length for soil saturation).
-
----
-
-### 6. Multi-Wave Sequential Dynamics
-
-The framework captures **cumulative saturation effects** across sequential rainfall events:
-
-$$\text{Wave } n: \quad \mathbf{S}^{(n)} = \mathbf{S}^{(n-1)} + \Delta\mathbf{S}^{(n)}$$
-
-Where each wave encounters the persistent quantum state left by previous waves, leading to:
-- **Decreasing infiltration** as soil saturates
-- **Increasing runoff velocity** as saturated soil behaves more like impervious surfaces
-- **Non-linear saturation curves** from quantum interference effects
 
 ---
 
 ## Results
 
-### Multi-Wave Comparison
+### Multi-Wave Quantum Dynamics
 
 <div align="center">
 
 ![Multi-Wave Comparison](results-multiple-waves/multi_wave_comparison.png)
 
-*Comprehensive analysis of three sequential water waves showing (a) trajectory evolution, (b) saturation field before/after, (c) wave statistics, and (d) velocity changes across waves.*
+*Three sequential water waves: (a) trajectory evolution, (b) saturation field, (c) wave statistics, (d) velocity changes.*
 
 </div>
-
-### Key Findings
 
 | Metric | Wave 1 | Wave 2 | Wave 3 | Trend |
 |--------|--------|--------|--------|-------|
-| Soil Saturation | 1.1% | 1.4% | 1.7% | ↑ 55% |
-| Water Absorbed | 3.3% | 3.0% | 2.1% | ↓ 36% |
-| Soil Velocity | 2.6 | 2.9 | 2.4 | Variable |
-| Road Velocity | 20.8 | 19.9 | 20.3 | Stable |
+| Soil Saturation | 1.1% | 1.4% | 1.7% | +55% |
+| Water Absorbed | 3.3% | 3.0% | 2.1% | -36% |
+| Soil Velocity | 2.6 m/s | 2.9 m/s | 2.4 m/s | Variable |
+| Road Velocity | 20.8 m/s | 19.9 m/s | 20.3 m/s | Stable |
 
-**Key Observations:**
-- Saturation increases monotonically: 0.001 → 0.017 (17× increase)
-- Water absorption decreases: 3.3% → 2.1% (36% reduction)
-- Road velocity remains ~3.5× faster than soil velocity
-- Saturated soil exhibits road-like behavior (faster runoff)
+### Multi-Agent Evolution (5 Iterations)
 
-### Soil vs Road Dynamics
+Starting from hardcoded defaults, the agents autonomously drive the simulation toward physically realistic targets:
 
-<div align="center">
+| Metric | Iter 1 | Iter 2 | Iter 3 | Iter 4 | Iter 5 | Target |
+|--------|--------|--------|--------|--------|--------|--------|
+| Velocity Ratio (road/soil) | 2.70 | 3.28 | 2.45 | 2.60 | **2.54** | 2.5 |
+| Mass Loss (%) | 3.3 | 12.6 | 11.6 | 19.0 | **21.4** | 30.0 |
+| Avg Road Distance (m) | 28.2 | 44.9 | 43.2 | 50.4 | 44.7 | — |
+| Avg Soil Distance (m) | 2.6 | 6.8 | 8.8 | 9.9 | 10.5 | — |
 
-![Urban Soil vs Road](results-multiple-waves/urban_soil_vs_road.png)
+**Key parameter shifts by agents:**
 
-*Visualization of water trajectories over heterogeneous urban terrain. Gray = roads (fast flow, no absorption), Green = soil (slower flow, quantum infiltration), Blue = drainage channels.*
+| Parameter | Default | Final | Agent | Direction |
+|-----------|---------|-------|-------|-----------|
+| `manning_n_road` | 0.012 | 0.017 | Hydrology | Rougher roads → slower flow |
+| `road_surface_boost` | 1.80 | 1.06 | Hydrology | Reduced boost → lower velocity ratio |
+| `infiltration_loss_mult` | 0.08 | 0.14 | Quantum Soil | More infiltration → realistic mass loss |
+| `entanglement_radius` | 3.0 | 4.0 | Quantum Soil | Wider coupling → smoother saturation |
+| `road_velocity_base` | 1.2 | 1.43 | Surface | Faster base → better differentiation |
+| `soil_dispersion` | 0.25 | 0.35 | Surface | More spread → realistic particle behavior |
 
-</div>
+The iteration 2 overshoot (velocity ratio 3.28) demonstrates self-correction: the hydrology agent adjusted `road_surface_boost` downward in iteration 3, stabilizing near the target.
 
 ---
 
-## Architecture
+## Project Structure
 
 ```
 qSODE-urban-wsmodel/
-├── qode_framework/
-│   ├── quantum/
-│   │   ├── soil_absorptivity.py    # Qiskit quantum circuits
-│   │   └── __init__.py
-│   ├── core/
-│   │   ├── dynamics.py             # ODE formulation
-│   │   ├── environment.py          # Urban terrain
-│   │   └── wave.py                 # Wave state representation
-│   ├── simulation/
-│   │   └── simulator.py            # ODE solver (torchdiffeq)
-│   └── visualization/
-│       └── visualizer.py           # Matplotlib animations
-├── urban_rainstorm.py              # Main simulation script
-├── main.py                         # Quantum vs classical comparison
-└── results-multiple-waves/         # Output visualizations
+├── qode_framework/                    # Original framework (untouched)
+│   ├── quantum/                       #   Qiskit quantum circuits
+│   ├── core/                          #   ODE dynamics, environments, waves
+│   ├── simulation/                    #   ODE solver (torchdiffeq)
+│   └── visualization/                 #   Matplotlib animations
+│
+├── qagentic_approach/                 # Multi-agent enhanced framework
+│   ├── agents/
+│   │   ├── base_agent.py              #   BaseAgent ABC (Claude API client)
+│   │   ├── hydrology_agent.py         #   Manning's equation specialist
+│   │   ├── surface_agent.py           #   Surface dynamics specialist
+│   │   ├── quantum_soil_agent.py      #   Quantum soil specialist
+│   │   ├── orchestrator.py            #   Conflict resolution + synthesis
+│   │   └── protocol.py               #   Typed JSON message schemas
+│   ├── evolution/
+│   │   ├── parameter_space.py         #   19-parameter ParameterSet
+│   │   ├── metrics.py                 #   SimulationMetrics extraction
+│   │   ├── history.py                 #   EvolutionHistory tracking
+│   │   └── evolution_loop.py          #   Self-evolving main loop
+│   ├── quantum/                       #   Qiskit circuits (from qode_framework)
+│   ├── core/                          #   Dynamics, environments (from qode_framework)
+│   └── simulation/                    #   Solver (from qode_framework)
+│
+├── urban_wave_simulation.py           # Original simulation (hardcoded params)
+├── qagentic_urban_wave_simulation.py  # Multi-agent simulation (evolvable params)
+├── .env                               # ANTHROPIC_API_KEY
+├── evolution_history.json             # Full iteration records (generated)
+└── paper.md                           # Research paper
 ```
 
 ---
@@ -253,7 +234,8 @@ qSODE-urban-wsmodel/
 ### Prerequisites
 
 - Python 3.10+
-- CUDA-capable GPU (optional, for acceleration)
+- Anthropic API key ([console.anthropic.com](https://console.anthropic.com))
+- CUDA-capable GPU (optional)
 
 ### Setup
 
@@ -262,13 +244,12 @@ qSODE-urban-wsmodel/
 git clone https://github.com/qugena-labs/qSODE-urban-wsmodel.git
 cd qSODE-urban-wsmodel
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
-
 # Install dependencies
 pip install -r requirements.txt
+pip install anthropic python-dotenv
+
+# Set your API key
+echo "ANTHROPIC_API_KEY=your-key-here" > .env
 ```
 
 ### Dependencies
@@ -281,102 +262,58 @@ matplotlib>=3.7.0
 scipy>=1.10.0
 qiskit>=1.0.0
 qiskit-aer>=0.13.0
+anthropic
+python-dotenv
 ```
 
 ---
 
 ## Usage
 
-### Run Multi-Wave Urban Simulation
+### Run Multi-Agent Self-Evolving Simulation
 
 ```bash
-python urban_rainstorm.py
+python qagentic_urban_wave_simulation.py
 ```
 
-This runs 3 sequential water waves and generates:
-- `results/multi_wave_comparison.png` - Wave comparison analysis
-- `results/urban_soil_vs_road.png` - Surface type visualization
-- `results/multi_wave_flow.gif` - Animated simulation
+This runs 5 evolution iterations where Claude agents collaboratively tune 19 parameters. Outputs:
+- Console: per-iteration metrics and parameter changes
+- `evolution_history.json`: full record of all iterations, suggestions, and decisions
+- `results/`: simulation visualizations
 
-### Run Quantum vs Classical Comparison
+### Run Original Simulation (No Agents)
 
 ```bash
-python main.py
+python urban_wave_simulation.py
 ```
 
-Compares quantum-enhanced model against classical Green-Ampt infiltration.
+Runs the base qSODE simulation with hardcoded parameters for comparison.
 
-### Custom Simulation
+### Custom Configuration
 
 ```python
-from qode_framework.quantum import QuantumSoilGrid, QuantumWaterDynamics
+from qagentic_approach.evolution.evolution_loop import EvolutionLoop, EvolutionConfig
+from qagentic_approach.evolution.parameter_space import ParameterSet
 
-# Create quantum soil grid
-soil = QuantumSoilGrid(
-    width=100,
-    height=100,
-    entanglement_radius=3.0
+config = EvolutionConfig(
+    max_iterations=10,       # More iterations for better convergence
+    learning_rate=0.3,       # Lower LR for more cautious updates
+    convergence_window=3,    # Check last 3 iterations for plateau
 )
 
-# Set surface types
-soil.set_soil_region(0, 0, 50, 100, SoilType.LOAM)
-soil.set_soil_region(50, 0, 100, 100, SoilType.IMPERVIOUS)
-
-# Run water interaction
-result = soil.interact_water(x=25, y=50, water_amount=1.0)
-print(f"Infiltration: {result['infiltration_rate']:.2%}")
-print(f"Runoff: {result['runoff_factor']:.2%}")
-```
-
----
-
-## Quantum Circuit Details
-
-### Qiskit Implementation
-
-```python
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
-from qiskit.circuit import Parameter
-
-# Create parameterized circuit
-qr = QuantumRegister(3, 'soil')
-cr = ClassicalRegister(3, 'measure')
-circuit = QuantumCircuit(qr, cr)
-
-# Parameters encode soil state
-θ_moisture = Parameter('θ_m')
-θ_saturation = Parameter('θ_s')
-θ_surface = Parameter('θ_surf')
-φ_entangle = Parameter('φ_ent')
-
-# State preparation
-circuit.ry(θ_moisture, 0)
-circuit.ry(θ_saturation, 1)
-circuit.ry(θ_surface, 2)
-
-# Entanglement
-circuit.cx(1, 0)                    # CNOT
-circuit.crx(φ_entangle, 2, 0)       # Controlled Rx
-
-# Interference
-circuit.h(1)
-circuit.cz(0, 1)
-circuit.h(1)
-
-# Measurement
-circuit.measure(qr, cr)
+loop = EvolutionLoop(config=config, sim_factory=my_sim_factory)
+final_params, history = loop.evolve()
 ```
 
 ---
 
 ## Citation
 
-If you use qSODE in your research, please cite:
-
 ```bibtex
-@article{qsode2025,
-  title={qSODE: A Quantum Stochastic ODE Framework for Urban Watershed Modeling},
-  author={Qugena Labs},
+@article{qsode-agents2025,
+  title={qSODE-powered Agents: A Multi-Agent Self-Evolving Framework for
+         Quantum Stochastic ODE-Based Urban Watershed Modeling},
+  author={Parekh, Aksh},
   journal={arXiv preprint},
   year={2025}
 }
@@ -392,7 +329,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- IBM Qiskit team for quantum computing framework
+- Anthropic for Claude API powering the multi-agent system
+- IBM Qiskit team for the quantum computing framework
 - PyTorch team for differentiable ODE solvers
 - USDA for soil classification data
 
@@ -400,7 +338,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**qSODE** - *Bridging Quantum Computing and Hydrological Modeling*
+**qSODE-powered Agents** — *Quantum Physics Meets Multi-Agent Collaboration for Urban Hydrology*
 
 [Report Issues](https://github.com/qugena-labs/qSODE-urban-wsmodel/issues) | [Contribute](https://github.com/qugena-labs/qSODE-urban-wsmodel/pulls)
 
